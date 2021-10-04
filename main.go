@@ -1,6 +1,8 @@
 package gossip_mp1
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type node struct {
 	id     int     // holds ID of node
@@ -10,6 +12,8 @@ type node struct {
 
 func main() {
 	message, code := askInput()
+
+	complete := make(chan bool, 1)
 
 }
 
@@ -39,3 +43,12 @@ func askInput() (string, string, string) {
 
 	return message, code
 }
+
+// initialize the value for each node,
+//let each node start as susceptible and hold empty message
+func initNode(node) {
+	node.status = false
+	node.msg = ""
+}
+
+func infect(node.msg, c)
