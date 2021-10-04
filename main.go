@@ -10,7 +10,7 @@ type node struct {
 
 func main() {
 	message, code := askInput()
-
+	//Hi
 }
 
 // asks for user input of web addresses
@@ -39,3 +39,5 @@ func askInput() (string, string, string) {
 
 	return message, code
 }
+
+
