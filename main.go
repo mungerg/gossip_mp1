@@ -2,23 +2,47 @@ package gossip_mp1
 
 import (
 	"fmt"
+	"math/rand"
 )
 
-type node struct {
-	id     int     // holds ID of node
-	status boolean // false corresponds to susceptible, true corresponds to infected
-	msg    string  // holds message
+var listOfNodes []Node
+
+type chanData struct {
+	status bool
+	msg    string
 }
 
 func main() {
 	message, code := askInput()
+	allInfected := make(chan bool)
+	//Need channel for receiving and sending updates. They are only one way?
+	var counter int = 1
+	var x bool
+	for allInfected != true {
+
+		if counter <= 10 {
+			send := make(chan chanData)
+			receive := make(chan chanData)
+			x := createNode(counter, false, "Ready", send, receive)
+			listOfNodes[counter] = x
+			//Need to add node to list.
+
+			//There is the potential for this go routine to only run during the if statement/ its iteration. Maybe I can call to something outside that will let it run independently.
+			go runNode(allInfected, x, code, message)
+		}
+
+		counter++
+	}
+	for i := 0; i < 10; i++ {
+
+	}
 
 	complete := make(chan bool, 1)
 
 }
 
 // asks for user input of web addresses
-func askInput() (string, string, string) {
+func askInput() (string, string) {
 	fmt.Println("Hello! Type a word that you would like to send")
 	var message string
 	fmt.Scanln(&message)
@@ -41,14 +65,77 @@ func askInput() (string, string, string) {
 
 	fmt.Println("Great! We will send" + message + "using the" + printCode + "algorithm.")
 
-	return message, code
+	return message, printCode
+}
+func runNode(allInfected <-chan bool, currNode Node, protocol string, message string) {
+	lenOfList := len(listOfNodes)
+	//Create channels to and
+	for true {
+		//Could be a while loop
+		if currNode.status == false {
+			// reception chanData
+			reception := <-currNode.receiveChan
+			currNode.status = reception.status
+			currNode.msg = reception.msg
+		}
+
+		//Gossiping-How can I make it so that if it receives something in allInfected it breaks.
+		for allInfected != true {
+			//WAIT TIME
+
+			//Pick a random node-This will probably need to be changed according to the protocol developed in chapter 4 that I havent read yet
+			randomPeer := pickNode(currNode, lenOfList)
+			if protocol == "Push" && currNode.status == true {
+				push(randomPeer, message)
+			}
+			if protocol == "Pull" && currNode.status == false {
+				pull(randomPeer, currNode.receiveChan, message)
+			}
+
+		}
+
+	}
+
 }
 
-// initialize the value for each node,
-//let each node start as susceptible and hold empty message
-func initNode(node) {
-	node.status = false
-	node.msg = ""
+func pull(peer Node, receiveChan <-chan chanData, message string) {
+
+}
+func push(receiverNode Node, message string) {
+	toBeSent := chanData{true, message}
+	receiverNode.sendChan <- toBeSent //Ok I don't fully understand go channels then. Ah its less the sender is sending the message through the sendChannel and to the receive channel
+	//More the receiverNode is being sent the message through their own send channel.
+
 }
 
-func infect(node.msg, c)
+/*func gossip( receiveChan  <- chan chanData, sendChan chan<- chanData,   allInfected <-chan bool, primeNode node, protocol string, message string){
+	if(primeNode.status ==  false){
+
+	}
+	lenOfList  := len(listOfNodes)
+	for allInfected != true{
+		//WAIT TIME
+
+		//Pick a random node-This will probably need to be changed according to the protocol developed in chapter 4 that I havent read yet
+		randomPeer := pickNode(primeNode, lenOfList)
+		if protocol == "Push" && primeNode.status==true {
+			push(randomPeer, sendChan, message)
+		}
+		//Need something to do the updating for the receiver. Like right now you could just change the status of the receiver right here
+		x := <- receiveChan
+
+	}
+
+}*/
+func pickNode(primeNode Node, lenOfList int) Node {
+	var randomNode int
+	x := false
+	for x == false {
+		randomNode := rand.Intn(lenOfList)
+		if randomNode != primeNode.id {
+			x = true
+		}
+	}
+	receiver := listOfNodes[randomNode]
+	return receiver
+}
