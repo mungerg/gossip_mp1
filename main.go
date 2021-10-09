@@ -18,15 +18,23 @@ func main() {
 	//Need channel for receiving and sending updates. They are only one way?
 	var counter int = 1
 	var x bool
+	//This while loop is an attempt to just get the program constantly running.
 	for allInfected != true {
-
+		//Just want to make ten nodes.
 		if counter <= 10 {
+			//Creating a send channel and receive channel for each Node
 			send := make(chan chanData)
 			receive := make(chan chanData)
+			//Creating nodes
 			x := createNode(counter, false, "Ready", send, receive)
+			//Adding nodes to listOfnodes
 			listOfNodes[counter] = x
 			//Need to add node to list.
-
+			//There is the potential for this go routine to only run during the if statement/ its iteration. Maybe I can call to something outside that will let it run independently.
+			//This might also only do this once
+			//Ah maybe I should make another function to run all the nodes at onces. Like there is actually no reason for the nodes to be created in this for loop
+			//So like for i in listOFNodes: run each node. Probably be better, still need a way to ensure they are running, and not just exiting once the for loop closes.
+			//That in this is the purpose of the boolean while loop, but there is probably a better way to implement it.
 			//There is the potential for this go routine to only run during the if statement/ its iteration. Maybe I can call to something outside that will let it run independently.
 			go runNode(allInfected, x, code, message)
 		}
@@ -75,6 +83,7 @@ func runNode(allInfected <-chan bool, currNode Node, protocol string, message st
 	//Create channels to and
 	for true {
 		//Could be a while loop
+		//Ensuring Nodes are passive. We don't want them to run gossip if they are passive.
 		if currNode.status == false {
 			// reception chanData
 			reception := <-currNode.receiveChan
@@ -109,8 +118,9 @@ func pull(peer Node, receiveChan <-chan chanData, message string) {
 }
 func push(receiverNode Node, message string) {
 	toBeSent := chanData{true, message}
-	receiverNode.sendChan <- toBeSent //Ok I don't fully understand go channels then. Ah its less the sender is sending the message through the sendChannel and to the receive channel
-	//More the receiverNode is being sent the message through their own send channel.
+	//The idea here is that the receiving Node is being sent this data through their receiving Channel, which right now is called send Channel.
+	//This is just a quirk because I didn't fully understand channels when I wrote this.
+	receiverNode.sendChan <- toBeSent
 
 }
 
@@ -133,6 +143,7 @@ func push(receiverNode Node, message string) {
 	}
 
 }*/
+//This function picks a random node from the global list listOfNodes. If the node picks itself, it keeps running until it picks a node that isnt itself.
 func pickNode(primeNode Node, lenOfList int) Node {
 	var randomNode int
 	x := false
