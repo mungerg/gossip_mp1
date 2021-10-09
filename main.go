@@ -65,6 +65,9 @@ func askInput() (string, string) {
 
 	fmt.Println("Great! We will send" + message + "using the" + printCode + "algorithm.")
 
+	// I think it would be good to put some type of error handling if the input given is not correct
+	// I am working to implement this - J
+
 	return message, printCode
 }
 func runNode(allInfected <-chan bool, currNode Node, protocol string, message string) {
@@ -99,7 +102,10 @@ func runNode(allInfected <-chan bool, currNode Node, protocol string, message st
 }
 
 func pull(peer Node, receiveChan <-chan chanData, message string) {
-
+	toBeRecieved := chanData(true, message)
+	peer.receiveChan <- toBeRecieved
+	// I might not be understanding the way the channels are setup.
+	// Can I also access the current node and pull the update from the peer node instead?
 }
 func push(receiverNode Node, message string) {
 	toBeSent := chanData{true, message}
