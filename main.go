@@ -17,18 +17,17 @@ func main() {
 	allInfected := make(chan bool)
 	//Need channel for receiving and sending updates. They are only one way?
 	var counter int = 1
-	var x bool
+
+
 	//This while loop is an attempt to just get the program constantly running.
-	for allInfected != true {
-		//Just want to make ten nodes.
-		if counter <= 10 {
-			//Creating a send channel and receive channel for each Node
-			send := make(chan chanData)
-			receive := make(chan chanData)
-			//Creating nodes
-			x := createNode(counter, false, "Ready", send, receive)
-			//Adding nodes to listOfnodes
-			listOfNodes[counter] = x
+	for i:=0;i<10;i++{
+		if i==0{
+			listOfNodes[i]= createNode(i,true,message)
+		} else{
+			listOfNodes[i]= createNode(i,false,"Ready")
+		}
+
+	}
 			//Need to add node to list.
 			//There is the potential for this go routine to only run during the if statement/ its iteration. Maybe I can call to something outside that will let it run independently.
 			//This might also only do this once
@@ -36,13 +35,8 @@ func main() {
 			//So like for i in listOFNodes: run each node. Probably be better, still need a way to ensure they are running, and not just exiting once the for loop closes.
 			//That in this is the purpose of the boolean while loop, but there is probably a better way to implement it.
 			//There is the potential for this go routine to only run during the if statement/ its iteration. Maybe I can call to something outside that will let it run independently.
-			go runNode(allInfected, x, code, message)
-		}
-
-		counter++
-	}
 	for i := 0; i < 10; i++ {
-
+		go runNode(allInfected, listOfNodes[i],code,message)
 	}
 
 	complete := make(chan bool, 1)
@@ -81,6 +75,8 @@ func askInput() (string, string) {
 func runNode(allInfected <-chan bool, currNode Node, protocol string, message string) {
 	lenOfList := len(listOfNodes)
 	//Create channels to and
+	var x bool = true
+
 	for true {
 		//Could be a while loop
 		//Ensuring Nodes are passive. We don't want them to run gossip if they are passive.
@@ -94,7 +90,7 @@ func runNode(allInfected <-chan bool, currNode Node, protocol string, message st
 		//Gossiping-How can I make it so that if it receives something in allInfected it breaks.
 		for allInfected != true {
 			//WAIT TIME
-
+			
 			//Pick a random node-This will probably need to be changed according to the protocol developed in chapter 4 that I havent read yet
 			randomPeer := pickNode(currNode, lenOfList)
 			if protocol == "Push" && currNode.status == true {
@@ -103,11 +99,8 @@ func runNode(allInfected <-chan bool, currNode Node, protocol string, message st
 			if protocol == "Pull" && currNode.status == false {
 				pull(randomPeer, currNode.receiveChan, message)
 			}
-
 		}
-
 	}
-
 }
 
 func pull(peer Node, receiveChan <-chan chanData, message string) {

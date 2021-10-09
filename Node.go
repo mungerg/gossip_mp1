@@ -8,7 +8,9 @@ type Node struct{
 	receiveChan <- chan chanData
 }
 
-func createNode(id int, status bool, msg string,sendChan chan <- chanData, receiveChan <- chan chanData) Node{
-	node := Node{ id, status, msg, sendChan,receiveChan}
+func createNode(id int, status bool, msg string) Node{
+	send := make(chan chanData)
+	receive := make(chan chanData)
+	node := Node{ id, status, msg, send,receive}
 	return node
 	}
