@@ -1,4 +1,4 @@
-package gossip_mp1
+package main
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 
 // initialize global list of node objects and list to track status
 var listOfNodes [10]Node
-var statusList [10]bool
+var statusList []bool
 
 func main() {
 	// ask for input
@@ -28,13 +28,13 @@ func main() {
 	// start gossip protocol
 	time1 := time.Now() // captures start time of protocol
 	for i := 0; i < 10; i++ {
-		go runNode(listOfNodes[i], protocolCode, message)
+		go runNode( listOfNodes[i], protocolCode)
 	}
 	time2 := time.Now() // captures end time of protocol
 	timeDiff := time2.Sub(time1)
 
 	fmt.Println("Gossip Protocol is complete!")
-	fmt.Println("Thr protocol took" + timeDiff)
+	fmt.Println("The protocol took %d",  &timeDiff)
 }
 
 // asks for user input of message and desired gossip algorithm
@@ -77,8 +77,8 @@ func push(currNode Node) {
 	if (!currNode.status) {
 		reception := <-currNode.pushChan // waits for message in pushChan
 		currNode.msg = reception // sets Node's message to reception string
-		currNode.status == true // sets Node's status to infected
-		statusList[i] = true // tells array that node is infected now
+		currNode.status = true // sets Node's status to infected
+		statusList[currNode.id] = true // tells array that node is infected now
 	}
 	// executes when the node becomes infected
 	for true {
@@ -101,7 +101,8 @@ func pull(currNode Node) {
 			pullFrom.pullChan <- currNode.id // sends id to pullFrom
 			reception := <- currNode.pushChan // wait for message from pullFrom
 			currNode.status = true // set Node's status to infected
-			statusList[i] = true // tells array that node is infected now
+			currNode.msg = reception
+			statusList[currNode.id] = true // tells array that node is infected now
 
 			// checks to see if this is the last node to be infected
 			if sumBool(statusList) == 10 {
@@ -159,7 +160,7 @@ func pickNode(primeNode Node) (Node) {
 }
 
 // returns integer representing how many entries in boolean array are true
-func sumBool(list []bool) (int){
+func sumBool(list []bool) int{
 	sum := 0
 	for _, entry := range list {
 		if entry {

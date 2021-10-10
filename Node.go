@@ -1,4 +1,4 @@
-package gossip_mp1
+package main
 
 type Node struct{
 	id     int     // holds ID of node
@@ -9,7 +9,8 @@ type Node struct{
 }
 
 func createNode(id int, status bool, msg string) Node{
-	pull := make(chan string)
+	//Why is this one an int? Is it choosing based off id?
+	pull := make(chan int)
 	push := make(chan string)
 	node := Node{ id, status, msg, pull,push}
 	return node
