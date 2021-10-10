@@ -26,8 +26,8 @@ type Node struct {
 // function for creating nodes
 func createNode(id int, status bool, msg string) Node {
 	//Why is this one an int? Is it choosing based off id?
-	pull := make(chan int)
-	push := make(chan string)
+	pull := make(chan int, 256)
+	push := make(chan string, 1)
 	node := Node{id, status, msg, pull, push}
 	return node
 }
@@ -108,6 +108,8 @@ func push(currNode Node) {
 		currNode.status = true           // sets Node's status to infected
 		statusList[currNode.id] = true   // tells array that node is infected now
 	}
+	fmt.Println(strconv.Itoa(currNode.id) + " is infected! " + strconv.Itoa(10-sumBool(statusList)) +
+		" left to infect.")
 	// executes when the node becomes infected
 	for true {
 		// test to see if there are susceptible nodes remaining
@@ -115,8 +117,11 @@ func push(currNode Node) {
 		if sumBool(statusList) == 10 {
 			break
 		}
-		pushTo := pickNode(currNode)    // choose random node to push to
-		pushTo.pushChan <- currNode.msg // send message through the receiving node's channel
+		pushTo := pickNode(currNode) // choose random node to push to
+		if pushTo.status == false {
+			fmt.Println(strconv.Itoa(currNode.id) + " picked node " + strconv.Itoa(pushTo.id))
+			pushTo.pushChan <- currNode.msg // send message through the receiving node's channel
+		}
 	}
 }
 
@@ -203,12 +208,11 @@ func pushPull(currNode Node) {
 // returns node chosen
 func pickNode(primeNode Node) Node {
 	var randomId int
-	x := false
-	for x {
+	for true {
 		rand.Seed(time.Now().UnixNano()) // makes it so that the random int is not deterministic
-		randomId = rand.Intn(10) - 1     // random int between 0 and 9 inclusive
+		randomId = rand.Intn(10)         // random int between 0 and 9 inclusive
 		if randomId != primeNode.id {
-			x = true
+			break
 		}
 	}
 	pickedNode := listOfNodes[randomId]
