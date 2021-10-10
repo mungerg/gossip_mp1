@@ -20,3 +20,9 @@ There are three protocols to choose from: push, pull, and push-pull. As describe
 
 You should receive the following output:
 //Put in screenshot of output
+
+
+
+Workflow Diagram
+----
+![Gossip Protocol Workflow Diagram](https://github.com/mungerg/gossip_mp1/blob/main/Gossip%20Protocol.png)
