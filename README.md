@@ -13,6 +13,7 @@ How To Run
 ----
 ### 1.  Clone Git Repository
 ### 2.  Input the message you would like to send
+The type of message does not matter because it will be read as a string.
 ### 3.  Input the specific gossip protocol to use.
 There are three protocols to choose from: push, pull, and push-pull. As described by Jelasity:
 
