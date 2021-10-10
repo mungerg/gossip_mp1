@@ -8,7 +8,22 @@ import (
 
 // initialize global list of node objects and list to track status
 var listOfNodes [10]Node
-var statusList []bool
+var statusList [10]bool
+type Node struct{
+	id     int     // holds ID of node
+	status bool // false corresponds to susceptible, true corresponds to infected
+	msg    string  // holds message
+	pullChan chan int // for receiving pull requests
+	pushChan chan string // for pushing message through
+}
+
+func createNode(id int, status bool, msg string) Node{
+	//Why is this one an int? Is it choosing based off id?
+	pull := make(chan int)
+	push := make(chan string)
+	node := Node{ id, status, msg, pull,push}
+	return node
+}
 
 func main() {
 	// ask for input
@@ -28,13 +43,14 @@ func main() {
 	// start gossip protocol
 	time1 := time.Now() // captures start time of protocol
 	for i := 0; i < 10; i++ {
+		fmt.Println("Here")
 		go runNode( listOfNodes[i], protocolCode)
 	}
 	time2 := time.Now() // captures end time of protocol
 	timeDiff := time2.Sub(time1)
 
 	fmt.Println("Gossip Protocol is complete!")
-	fmt.Println("The protocol took %d",  &timeDiff)
+	fmt.Println("The protocol took ",  &timeDiff)
 }
 
 // asks for user input of message and desired gossip algorithm
@@ -68,12 +84,13 @@ func askInput() (string, string) {
 		}
 	}
 
-	fmt.Println("Great! We will send" + message + "using the" + printCode + "algorithm.")
+	fmt.Println("Great! We will send " + message + " using the " + printCode + " algorithm.")
 	return message, code
 }
 
 func push(currNode Node) {
 	// executes as long as the node is susceptible
+	fmt.Println(currNode.status, currNode.id)
 	if (!currNode.status) {
 		reception := <-currNode.pushChan // waits for message in pushChan
 		currNode.msg = reception // sets Node's message to reception string
@@ -93,9 +110,11 @@ func push(currNode Node) {
 }
 
 func pull(currNode Node) {
+
 	lastNode := false // tells if this is the final node to be infected
 	// executes while node is susceptible, picks nodes to request until becomes infected
 	for (!currNode.status) {
+		fmt.Println(currNode.status, currNode.id)
 		pullFrom := pickNode(currNode) // choose random node to pull from
 		if pullFrom.status { // if the pull node is infected, send the message from pullFrom
 			pullFrom.pullChan <- currNode.id // sends id to pullFrom
@@ -142,7 +161,7 @@ func runNode(currNode Node, protocol string) {
 	}
 }
 //Based on page 7 and 8 of Gossip by Mark Jelasity. When the proportion of nodes is less than .5, pull is faster than push. "In fact, the quadratic convergence phase,
-//roughly after st < 0.5, lasts only for O(log log N) cycles" 
+//roughly after st < 0.5, lasts only for O(log log N) cycles"
 func pushPull(currNode Node){
 
 	if (!currNode.status) {
@@ -162,7 +181,6 @@ func pushPull(currNode Node){
 		pushTo := pickNode(currNode) // choose random node to push to
 		pushTo.pushChan <- currNode.msg // send message through the receiving node's channel
 	}
-
 }
 // picks a random node from the global list listOfNodes.
 // If the node picks itself, it keeps running until it picks a node that isn't itself.
@@ -182,7 +200,7 @@ func pickNode(primeNode Node) (Node) {
 }
 
 // returns integer representing how many entries in boolean array are true
-func sumBool(list []bool) int{
+func sumBool(list [10]bool) int{
 	sum := 0
 	for _, entry := range list {
 		if entry {
