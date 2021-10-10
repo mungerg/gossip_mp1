@@ -137,11 +137,33 @@ func runNode(currNode Node, protocol string) {
 	if protocol == "b" {
 		pull(currNode)
 	}
-	//if protocol == "c" {
-	//	pushPull(currNode)
-	//}
+	if protocol == "c" {
+		pushPull(currNode)
+	}
 }
+//Based on page 7 and 8 of Gossip by Mark Jelasity. When the proportion of nodes is less than .5, pull is faster than push. "In fact, the quadratic convergence phase,
+//roughly after st < 0.5, lasts only for O(log log N) cycles" 
+func pushPull(currNode Node){
 
+	if (!currNode.status) {
+		reception := <-currNode.pushChan // waits for message in pushChan
+		currNode.msg = reception // sets Node's message to reception string
+		currNode.status = true // sets Node's status to infected
+		statusList[currNode.id] = true // tells array that node is infected now
+	}
+	// executes when the node becomes infected
+	for true {
+		// test to see if there are susceptible nodes remaining
+		// if all nodes are infected, then we break the loop and do not perform push
+		if sumBool(statusList) == len(listOfNodes)/2 {
+			pull(currNode)
+			break
+		}
+		pushTo := pickNode(currNode) // choose random node to push to
+		pushTo.pushChan <- currNode.msg // send message through the receiving node's channel
+	}
+
+}
 // picks a random node from the global list listOfNodes.
 // If the node picks itself, it keeps running until it picks a node that isn't itself.
 // returns node chosen
