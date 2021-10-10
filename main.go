@@ -3,149 +3,168 @@ package gossip_mp1
 import (
 	"fmt"
 	"math/rand"
+	"time"
 )
 
-var listOfNodes []Node
-
-type chanData struct {
-	status bool
-	msg    string
-}
+// initialize global list of node objects and list to track status
+var listOfNodes [10]Node
+var statusList [10]bool
 
 func main() {
-	message, code := askInput()
-	allInfected := make(chan bool)
-	//Need channel for receiving and sending updates. They are only one way?
-	var counter int = 1
+	// ask for input
+	message, protocolCode := askInput()
 
-
-	//This while loop is an attempt to just get the program constantly running.
-	for i:=0;i<10;i++{
-		if i==0{
-			listOfNodes[i]= createNode(i,true,message)
-		} else{
-			listOfNodes[i]= createNode(i,false,"Ready")
+	// initializes 10 nodes for system indexed 0 - 9
+	for i:=0; i < 10; i++ {
+		if i == 0 { // initial infected node
+			listOfNodes[i] = createNode(i, true, message)
+			statusList[i] = true
+		} else { // remaining susceptible nodes
+			listOfNodes[i] = createNode(i, false, "ready")
+			statusList[i] = false
 		}
-
 	}
-			//Need to add node to list.
-			//There is the potential for this go routine to only run during the if statement/ its iteration. Maybe I can call to something outside that will let it run independently.
-			//This might also only do this once
-			//Ah maybe I should make another function to run all the nodes at onces. Like there is actually no reason for the nodes to be created in this for loop
-			//So like for i in listOFNodes: run each node. Probably be better, still need a way to ensure they are running, and not just exiting once the for loop closes.
-			//That in this is the purpose of the boolean while loop, but there is probably a better way to implement it.
-			//There is the potential for this go routine to only run during the if statement/ its iteration. Maybe I can call to something outside that will let it run independently.
+
+	// start gossip protocol
+	time1 := time.Now() // captures start time of protocol
 	for i := 0; i < 10; i++ {
-		go runNode(allInfected, listOfNodes[i],code,message)
+		go runNode(listOfNodes[i], protocolCode, message)
 	}
+	time2 := time.Now() // captures end time of protocol
+	timeDiff := time2.Sub(time1)
 
-	complete := make(chan bool, 1)
-
+	fmt.Println("Gossip Protocol is complete!")
+	fmt.Println("Thr protocol took" + timeDiff)
 }
 
-// asks for user input of web addresses
+// asks for user input of message and desired gossip algorithm
 func askInput() (string, string) {
 	fmt.Println("Hello! Type a word that you would like to send")
 	var message string
 	fmt.Scanln(&message)
 
-	fmt.Println("Enter the letter corresponding to the desired gossip algorithm:")
-	fmt.Println("a. Push")
-	fmt.Println("b. Pull")
-	fmt.Println("c. Push-Pull")
 	var code string
-	fmt.Scanln(&code)
-
 	var printCode string
-	if code == "a" {
-		printCode = "Push"
-	} else if code == "b" {
-		printCode = "Pull"
-	} else {
-		printCode = "Push-Pull"
+	// cycles until a, b, or c is selected
+	error := false
+	for (!error) {
+		fmt.Println("Enter the letter corresponding to the desired gossip algorithm:")
+		fmt.Println("a. Push")
+		fmt.Println("b. Pull")
+		fmt.Println("c. Push-Pull")
+		fmt.Scanln(&code)
+
+		if code == "a"{
+			printCode = "Push"
+			error = true
+		} else if code == "b"{
+			printCode = "Pull"
+			error = true
+		} else if code == "c"{
+			printCode = "Push-Pull"
+			error = true
+		} else {
+			fmt.Println("Invalid algorithm code. Try again!")
+		}
 	}
 
 	fmt.Println("Great! We will send" + message + "using the" + printCode + "algorithm.")
-
-	// I think it would be good to put some type of error handling if the input given is not correct
-	// I am working to implement this - J
-
-	return message, printCode
+	return message, code
 }
-func runNode(allInfected <-chan bool, currNode Node, protocol string, message string) {
-	lenOfList := len(listOfNodes)
-	//Create channels to and
-	var x bool = true
 
+func push(currNode Node) {
+	// executes as long as the node is susceptible
+	if (!currNode.status) {
+		reception := <-currNode.pushChan // waits for message in pushChan
+		currNode.msg = reception // sets Node's message to reception string
+		currNode.status == true // sets Node's status to infected
+		statusList[i] = true // tells array that node is infected now
+	}
+	// executes when the node becomes infected
 	for true {
-		//Could be a while loop
-		//Ensuring Nodes are passive. We don't want them to run gossip if they are passive.
-		if currNode.status == false {
-			// reception chanData
-			reception := <-currNode.receiveChan
-			currNode.status = reception.status
-			currNode.msg = reception.msg
+		// test to see if there are susceptible nodes remaining
+		// if all nodes are infected, then we break the loop and do not perform push
+		if sumBool(statusList) == 10 {
+			break
 		}
+		pushTo := pickNode(currNode) // choose random node to push to
+		pushTo.pushChan <- currNode.msg // send message through the receiving node's channel
+	}
+}
 
-		//Gossiping-How can I make it so that if it receives something in allInfected it breaks.
-		for allInfected != true {
-			//WAIT TIME
-			
-			//Pick a random node-This will probably need to be changed according to the protocol developed in chapter 4 that I havent read yet
-			randomPeer := pickNode(currNode, lenOfList)
-			if protocol == "Push" && currNode.status == true {
-				push(randomPeer, message)
+func pull(currNode Node) {
+	lastNode := false // tells if this is the final node to be infected
+	// executes while node is susceptible, picks nodes to request until becomes infected
+	for (!currNode.status) {
+		pullFrom := pickNode(currNode) // choose random node to pull from
+		if pullFrom.status { // if the pull node is infected, send the message from pullFrom
+			pullFrom.pullChan <- currNode.id // sends id to pullFrom
+			reception := <- currNode.pushChan // wait for message from pullFrom
+			currNode.status = true // set Node's status to infected
+			statusList[i] = true // tells array that node is infected now
+
+			// checks to see if this is the last node to be infected
+			if sumBool(statusList) == 10 {
+				lastNode = true
+				// need to inform other goroutines to stop
+				for i := 0; i < 10; i++ {
+					if i != currNode.id {
+						tempNode := listOfNodes[i]
+						tempNode.pullChan <- -1 // sends invalid id pull request to all nodes except currNode
+					}
+				}
 			}
-			if protocol == "Pull" && currNode.status == false {
-				pull(randomPeer, currNode.receiveChan, message)
-			}
+		}
+	}
+	// executes once node is infected as long as there are still susceptible nodes
+	for !lastNode {
+		sendToId := <-currNode.pullChan // waits for request in pullChan
+		// ends goroutine if it receives signal from last infected node
+		if sendToId == -1 {
+			break
+		} else {
+			listOfNodes[sendToId].pushChan <- currNode.msg // sends message through pull Node's pushChan
 		}
 	}
 }
 
-func pull(peer Node, receiveChan <-chan chanData, message string) {
-	toBeRecieved := chanData(true, message)
-	peer.receiveChan <- toBeRecieved
-	// I might not be understanding the way the channels are setup.
-	// Can I also access the current node and pull the update from the peer node instead?
-}
-func push(receiverNode Node, message string) {
-	toBeSent := chanData{true, message}
-	//The idea here is that the receiving Node is being sent this data through their receiving Channel, which right now is called send Channel.
-	//This is just a quirk because I didn't fully understand channels when I wrote this.
-	receiverNode.sendChan <- toBeSent
-
-}
-
-/*func gossip( receiveChan  <- chan chanData, sendChan chan<- chanData,   allInfected <-chan bool, primeNode node, protocol string, message string){
-	if(primeNode.status ==  false){
-
+// used to make goroutine that runs protocol based on input from user
+func runNode(currNode Node, protocol string) {
+	if protocol == "a" {
+		push(currNode)
 	}
-	lenOfList  := len(listOfNodes)
-	for allInfected != true{
-		//WAIT TIME
-
-		//Pick a random node-This will probably need to be changed according to the protocol developed in chapter 4 that I havent read yet
-		randomPeer := pickNode(primeNode, lenOfList)
-		if protocol == "Push" && primeNode.status==true {
-			push(randomPeer, sendChan, message)
-		}
-		//Need something to do the updating for the receiver. Like right now you could just change the status of the receiver right here
-		x := <- receiveChan
-
+	if protocol == "b" {
+		pull(currNode)
 	}
+	//if protocol == "c" {
+	//	pushPull(currNode)
+	//}
+}
 
-}*/
-//This function picks a random node from the global list listOfNodes. If the node picks itself, it keeps running until it picks a node that isnt itself.
-func pickNode(primeNode Node, lenOfList int) Node {
-	var randomNode int
+// picks a random node from the global list listOfNodes.
+// If the node picks itself, it keeps running until it picks a node that isn't itself.
+// returns node chosen
+func pickNode(primeNode Node) (Node) {
+	var randomId int
 	x := false
-	for x == false {
-		randomNode := rand.Intn(lenOfList)
-		if randomNode != primeNode.id {
+	for x {
+		rand.Seed(time.Now().UnixNano()) // makes it so that the random int is not deterministic
+		randomId = rand.Intn(10) - 1 // random int between 0 and 9 inclusive
+		if randomId != primeNode.id {
 			x = true
 		}
 	}
-	receiver := listOfNodes[randomNode]
-	return receiver
+	pickedNode := listOfNodes[randomId]
+	return pickedNode
+}
+
+// returns integer representing how many entries in boolean array are true
+func sumBool(list []bool) (int){
+	sum := 0
+	for _, entry := range list {
+		if entry {
+			sum++
+		}
+	}
+	return sum
 }
