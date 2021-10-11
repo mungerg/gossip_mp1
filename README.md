@@ -19,8 +19,7 @@ There are three protocols to choose from: push, pull, and push-pull. As describe
 
 `In push gossip, susceptible nodes are passive and infective nodes actively infect the population. In pull and push-pull gossip each node is active.`
 
-You should receive the following output:
-//Put in screenshot of output
+Currently, while our code executes correctly for the pull protocol, it does not execute correctly for the push or the push-pull protocols. We are still working to change this.
 
 
 
