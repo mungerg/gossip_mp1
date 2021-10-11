@@ -108,13 +108,13 @@ func push(currNode Node) {
 	// executes as long as the node is susceptible
 	if !currNode.status {
 		reception := <-currNode.pushChan // waits for message in pushChan
-		//mu.Lock()                        // locks global lists
-		currNode.msg = reception       // sets Node's message to reception string
-		currNode.status = true         // sets Node's status to infected
-		statusList[currNode.id] = true // tells array that node is infected now
+		mu.Lock()                        // locks global lists
+		currNode.msg = reception         // sets Node's message to reception string
+		currNode.status = true           // sets Node's status to infected
+		statusList[currNode.id] = true   // tells array that node is infected now
 		fmt.Println(strconv.Itoa(currNode.id) + " is infected! " + strconv.Itoa(10-sumBool(statusList)) +
 			" left to infect.")
-		//mu.Unlock() // unlocks global lists
+		mu.Unlock() // unlocks global lists
 	}
 	// executes when the node becomes infected
 	for true {
@@ -123,13 +123,13 @@ func push(currNode Node) {
 		if sumBool(statusList) == 10 {
 			break
 		}
-		//	mu.Lock()                    // locks global lists
+		mu.Lock()                    // locks global lists
 		pushTo := pickNode(currNode) // choose random node to push to
 		if pushTo.status == false {
 			fmt.Println(strconv.Itoa(currNode.id) + " picked node " + strconv.Itoa(pushTo.id))
 			pushTo.pushChan <- currNode.msg // send message through the receiving node's channel
 		}
-		//mu.Unlock() // unlocks global lists
+		mu.Unlock() // unlocks global lists
 	}
 }
 
@@ -139,7 +139,8 @@ func pull(currNode Node) {
 	// executes while node is susceptible, picks nodes to request until becomes infected
 	for !currNode.status {
 		pullFrom := pickNode(currNode) // choose random node to pull from
-		if pullFrom.status {           // if the pull node is infected, send the message from pullFrom
+		fmt.Println("Pullfrom node is", pullFrom)
+		if pullFrom.status { // if the pull node is infected, send the message from pullFrom
 			pullFrom.pullChan <- currNode.id // sends id to pullFrom
 			reception := <-currNode.pushChan // wait for message from pullFrom
 			currNode.status = true           // set Node's status to infected
@@ -219,6 +220,7 @@ func pushPull(currNode Node) {
 // If the node picks itself, it keeps running until it picks a node that isn't itself.
 // returns node chosen
 func pickNode(primeNode Node) Node {
+	fmt.Println("in pick node for", primeNode)
 	var randomId int
 	for true {
 		rand.Seed(time.Now().UnixNano()) // makes it so that the random int is not deterministic
@@ -227,20 +229,28 @@ func pickNode(primeNode Node) Node {
 			break
 		}
 	}
-	pickedNode := <-queue
-	fmt.Println("value of picked node is")
+	tempNode := primeNode
+	for q := range queue {
+		tempNode := q
+		if tempNode.id == randomId {
+			break
+		}
+	}
+	fmt.Println("step 2 of pick node")
+	pickedNode := tempNode
+	fmt.Println("value of picked node is", pickedNode)
 	return pickedNode
 }
 
 // returns integer representing how many entries in boolean array are true
 func sumBool(list [10]bool) int {
-	//mu.Lock() // locks global lists
+	mu.Lock() // locks global lists
 	sum := 0
 	for _, entry := range list {
 		if entry {
 			sum++
 		}
 	}
-	//defer mu.Unlock() // unlocks global list when function finishes running
+	defer mu.Unlock() // unlocks global list when function finishes running
 	return sum
 }
