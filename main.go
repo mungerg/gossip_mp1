@@ -9,8 +9,11 @@ import (
 )
 
 // initialize global list of node objects and list to track status
-var listOfNodes [10]Node
-var statusList [10]bool
+var (
+	mu          sync.Mutex // allows for locking of variable
+	listOfNodes [10]Node
+	statusList  [10]bool
+)
 
 var wg sync.WaitGroup // makes main wait for go routines to finish
 
@@ -25,7 +28,6 @@ type Node struct {
 
 // function for creating nodes
 func createNode(id int, status bool, msg string) Node {
-	//Why is this one an int? Is it choosing based off id?
 	pull := make(chan int, 256)
 	push := make(chan string, 1)
 	node := Node{id, status, msg, pull, push}
@@ -104,12 +106,14 @@ func push(currNode Node) {
 	// executes as long as the node is susceptible
 	if !currNode.status {
 		reception := <-currNode.pushChan // waits for message in pushChan
+		mu.Lock()                        // locks global lists
 		currNode.msg = reception         // sets Node's message to reception string
 		currNode.status = true           // sets Node's status to infected
 		statusList[currNode.id] = true   // tells array that node is infected now
+		fmt.Println(strconv.Itoa(currNode.id) + " is infected! " + strconv.Itoa(10-sumBool(statusList)) +
+			" left to infect.")
+		mu.Unlock() // unlocks global lists
 	}
-	fmt.Println(strconv.Itoa(currNode.id) + " is infected! " + strconv.Itoa(10-sumBool(statusList)) +
-		" left to infect.")
 	// executes when the node becomes infected
 	for true {
 		// test to see if there are susceptible nodes remaining
@@ -117,11 +121,13 @@ func push(currNode Node) {
 		if sumBool(statusList) == 10 {
 			break
 		}
+		mu.Lock()                    // locks global lists
 		pushTo := pickNode(currNode) // choose random node to push to
 		if pushTo.status == false {
 			fmt.Println(strconv.Itoa(currNode.id) + " picked node " + strconv.Itoa(pushTo.id))
 			pushTo.pushChan <- currNode.msg // send message through the receiving node's channel
 		}
+		mu.Unlock() // unlocks global lists
 	}
 }
 
@@ -130,7 +136,6 @@ func pull(currNode Node) {
 	lastNode := false // tells if this is the final node to be infected
 	// executes while node is susceptible, picks nodes to request until becomes infected
 	for !currNode.status {
-		fmt.Println(currNode.status, currNode.id)
 		pullFrom := pickNode(currNode) // choose random node to pull from
 		if pullFrom.status {           // if the pull node is infected, send the message from pullFrom
 			pullFrom.pullChan <- currNode.id // sends id to pullFrom
@@ -138,6 +143,8 @@ func pull(currNode Node) {
 			currNode.status = true           // set Node's status to infected
 			currNode.msg = reception
 			statusList[currNode.id] = true // tells array that node is infected now
+			fmt.Println(strconv.Itoa(currNode.id) + " is infected! " + strconv.Itoa(10-sumBool(statusList)) +
+				" left to infect.")
 
 			// checks to see if this is the last node to be infected
 			if sumBool(statusList) == 10 {
@@ -181,9 +188,9 @@ func runNode(wg *sync.WaitGroup, currNode Node, protocol string) {
 }
 
 //Based on page 7 and 8 of Gossip by Mark Jelasity. When the proportion of nodes is less than .5, pull is faster than push. "In fact, the quadratic convergence phase,
-//roughly after st < 0.5, lasts only for O(log log N) cycles"
+//roughly after st < 0.5, lasts only for O(log N) cycles"
 func pushPull(currNode Node) {
-
+	// start with push protocol
 	if !currNode.status {
 		reception := <-currNode.pushChan // waits for message in pushChan
 		currNode.msg = reception         // sets Node's message to reception string
@@ -221,11 +228,13 @@ func pickNode(primeNode Node) Node {
 
 // returns integer representing how many entries in boolean array are true
 func sumBool(list [10]bool) int {
+	mu.Lock() // locks global lists
 	sum := 0
 	for _, entry := range list {
 		if entry {
 			sum++
 		}
 	}
+	defer mu.Unlock() // unlocks global list when function finishes running
 	return sum
 }
