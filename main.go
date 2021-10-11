@@ -10,9 +10,11 @@ import (
 
 // initialize global list of node objects and list to track status
 var (
-	mu          sync.Mutex // allows for locking of variable
-	listOfNodes [10]Node
-	statusList  [10]bool
+	mu sync.Mutex // allows for locking of variable
+	//listOfNodes [10]Node
+	// Initialize a queue in the form of a buffered channel, replaces the global var : listOfNodes
+	queue      = make(chan Node, 10)
+	statusList [10]bool
 )
 
 var wg sync.WaitGroup // makes main wait for go routines to finish
@@ -43,10 +45,10 @@ func main() {
 	// initializes 10 nodes for system indexed 0 - 9
 	for i := 0; i < 10; i++ {
 		if i == 0 { // initial infected node
-			listOfNodes[i] = createNode(i, true, message)
+			queue <- createNode(i, true, message)
 			statusList[i] = true
 		} else { // remaining susceptible nodes
-			listOfNodes[i] = createNode(i, false, "ready")
+			queue <- createNode(i, false, "ready")
 			statusList[i] = false
 		}
 	}
@@ -56,7 +58,7 @@ func main() {
 	time1 := time.Now() // captures start time of protocol
 	for i := 0; i < 10; i++ {
 		fmt.Println("Inside loop cycle " + strconv.Itoa(i))
-		go runNode(&wg, listOfNodes[i], protocolCode)
+		go runNode(&wg, <-queue, protocolCode)
 	}
 	wg.Wait()
 	time2 := time.Now() // captures end time of protocol
@@ -106,13 +108,13 @@ func push(currNode Node) {
 	// executes as long as the node is susceptible
 	if !currNode.status {
 		reception := <-currNode.pushChan // waits for message in pushChan
-		mu.Lock()                        // locks global lists
-		currNode.msg = reception         // sets Node's message to reception string
-		currNode.status = true           // sets Node's status to infected
-		statusList[currNode.id] = true   // tells array that node is infected now
+		//mu.Lock()                        // locks global lists
+		currNode.msg = reception       // sets Node's message to reception string
+		currNode.status = true         // sets Node's status to infected
+		statusList[currNode.id] = true // tells array that node is infected now
 		fmt.Println(strconv.Itoa(currNode.id) + " is infected! " + strconv.Itoa(10-sumBool(statusList)) +
 			" left to infect.")
-		mu.Unlock() // unlocks global lists
+		//mu.Unlock() // unlocks global lists
 	}
 	// executes when the node becomes infected
 	for true {
@@ -121,13 +123,13 @@ func push(currNode Node) {
 		if sumBool(statusList) == 10 {
 			break
 		}
-		mu.Lock()                    // locks global lists
+		//	mu.Lock()                    // locks global lists
 		pushTo := pickNode(currNode) // choose random node to push to
 		if pushTo.status == false {
 			fmt.Println(strconv.Itoa(currNode.id) + " picked node " + strconv.Itoa(pushTo.id))
 			pushTo.pushChan <- currNode.msg // send message through the receiving node's channel
 		}
-		mu.Unlock() // unlocks global lists
+		//mu.Unlock() // unlocks global lists
 	}
 }
 
@@ -152,8 +154,9 @@ func pull(currNode Node) {
 				// need to inform other goroutines to stop
 				for i := 0; i < 10; i++ {
 					if i != currNode.id {
-						tempNode := listOfNodes[i]
+						tempNode := <-queue
 						tempNode.pullChan <- -1 // sends invalid id pull request to all nodes except currNode
+						close(queue)
 					}
 				}
 			}
@@ -166,7 +169,9 @@ func pull(currNode Node) {
 		if sendToId == -1 {
 			break
 		} else {
-			listOfNodes[sendToId].pushChan <- currNode.msg // sends message through pull Node's pushChan
+			TempNode := <-queue
+			TempNode.pushChan <- currNode.msg
+			queue <- TempNode // sends message through pull Node's pushChan
 		}
 	}
 }
@@ -201,7 +206,7 @@ func pushPull(currNode Node) {
 	for true {
 		// test to see if there are susceptible nodes remaining
 		// if all nodes are infected, then we break the loop and do not perform push
-		if sumBool(statusList) == len(listOfNodes)/2 {
+		if sumBool(statusList) == len(queue)/2 {
 			pull(currNode)
 			break
 		}
@@ -222,19 +227,20 @@ func pickNode(primeNode Node) Node {
 			break
 		}
 	}
-	pickedNode := listOfNodes[randomId]
+	pickedNode := <-queue
+	fmt.Println("value of picked node is")
 	return pickedNode
 }
 
 // returns integer representing how many entries in boolean array are true
 func sumBool(list [10]bool) int {
-	mu.Lock() // locks global lists
+	//mu.Lock() // locks global lists
 	sum := 0
 	for _, entry := range list {
 		if entry {
 			sum++
 		}
 	}
-	defer mu.Unlock() // unlocks global list when function finishes running
+	//defer mu.Unlock() // unlocks global list when function finishes running
 	return sum
 }
