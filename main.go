@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"strconv"
 	"sync"
 
@@ -14,7 +15,8 @@ var (
 	mu sync.Mutex // allows for locking of variable
 	//listOfNodes [10]Node
 	// Initialize a queue in the form of a buffered channel, replaces the global var : listOfNodes
-	queue      = make(chan Node, 10)
+	//queue      = make(chan Node, 10)
+	queue      []Node
 	statusList [10]bool
 )
 
@@ -46,10 +48,10 @@ func main() {
 	// initializes 10 nodes for system indexed 0 - 9
 	for i := 0; i < 10; i++ {
 		if i == 0 { // initial infected node
-			queue <- createNode(i, true, message)
+			queue = append(queue, createNode(i, true, message))
 			statusList[i] = true
 		} else { // remaining susceptible nodes
-			queue <- createNode(i, false, "ready")
+			queue = append(queue, createNode(i, false, "ready"))
 			statusList[i] = false
 		}
 	}
@@ -59,8 +61,7 @@ func main() {
 	time1 := time.Now() // captures start time of protocol
 	for i := 0; i < 10; i++ {
 		fmt.Println("Inside loop cycle " + strconv.Itoa(i))
-		tempNode := <-queue
-		queue <- tempNode
+		tempNode := queue[i]
 		go runNode(&wg, tempNode, protocolCode)
 	}
 	wg.Wait()
@@ -149,7 +150,7 @@ func pull(currNode Node) {
 			currNode.status = true           // set Node's status to infected
 			currNode.msg = reception
 			statusList[currNode.id] = true // tells array that node is infected now
-			queue <- currNode
+			queue[currNode.id] = currNode
 			fmt.Println(strconv.Itoa(currNode.id) + " is infected! " + strconv.Itoa(10-sumBool(statusList)) +
 				" left to infect.")
 
@@ -161,7 +162,6 @@ func pull(currNode Node) {
 					if i != currNode.id {
 						//tempNode := <-queue
 						//tempNode.pullChan <- -1 // sends invalid id pull request to all nodes except currNode
-						close(queue)
 					}
 				}
 			}
@@ -174,9 +174,9 @@ func pull(currNode Node) {
 		if sendToId == -1 {
 			break
 		} else {
-			TempNode := <-queue
+			TempNode := queue[currNode.id]
 			TempNode.pushChan <- currNode.msg
-			queue <- TempNode // sends message through pull Node's pushChan
+			// sends message through pull Node's pushChan
 		}
 	}
 }
@@ -224,24 +224,20 @@ func pushPull(currNode Node) {
 // If the node picks itself, it keeps running until it picks a node that isn't itself.
 // returns node chosen
 func pickNode(primeNode Node) Node {
-	//var randomId int
-
-	//rand.Seed(time.Now().UnixNano()) // makes it so that the random int is not deterministic
-	//randomId = rand.Intn(10)         // random int between 0 and 9 inclusive
-	//if randomId == primeNode.id {
-	//	randomId = rand.Intn(10)
+	var randomId int
+	//for true {
+	rand.Seed(time.Now().UnixNano()) // makes it so that the random int is not deterministic
+	randomId = rand.Intn(10)         // random int between 0 and 9 inclusive
+	//if randomId != primeNode.id {
+	//	break
 	//}
-	//tempNode := <-queue
-	//if tempNode.id != primeNode.id {
-	//		break
-	//	}
-	//	return <-queue
+	if randomId == primeNode.id {
+		randomId = rand.Intn(10)
+	}
 
 	//}
-
-	fmt.Println("step 2 of pick node")
-	pickedNode := <-queue
-	queue <- primeNode
+	fmt.Println("random id is", randomId)
+	pickedNode := queue[randomId]
 	fmt.Println("value of picked node is", pickedNode)
 	return pickedNode
 }
