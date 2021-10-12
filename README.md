@@ -12,9 +12,12 @@ This program creates a network of independent nodes which spread a message via t
 How To Run
 ----
 ### 1.  Clone Git Repository
-### 2.  Input the message you would like to send
+### 2.  Run using:
+`go run main.go`
+
+### 3.  Input the message you would like to send
 The type of message does not matter because it will be read as a string.
-### 3.  Input the specific gossip protocol to use.
+### 4.  Input the specific gossip protocol to use.
 There are three protocols to choose from: push, pull, and push-pull. As described by Jelasity:
 
 `In push gossip, susceptible nodes are passive and infective nodes actively infect the population. In pull and push-pull gossip each node is active.`
