@@ -56,7 +56,7 @@ func main() {
 			statusList[i] = false
 		}
 	}
-	fmt.Println("sumBool is " + strconv.Itoa(sumBool(statusList)))
+	fmt.Println("sumBool is " + strconv.Itoa(sumBoolLocks(statusList)))
 
 	// start gossip protocol
 	time1 := time.Now() // captures start time of protocol
@@ -120,7 +120,7 @@ func push(currNode *Node) {
 	for true {
 		// test to see if there are susceptible nodes remaining
 		// if all nodes are infected, then we break the loop and do not perform push
-		if sumBool(statusList) == 10 {
+		if sumBoolLocks(statusList) == 10 {
 			break
 		}
 		mu.Lock()                    // locks global lists
@@ -138,7 +138,7 @@ func push(currNode *Node) {
 				strconv.FormatBool(statusList[pushTo.id]))
 		}
 		mu.Unlock() // unlocks global lists
-		fmt.Println(strconv.Itoa(pushTo.id) + " is infected! " + strconv.Itoa(10-sumBool(statusList)) +
+		fmt.Println(strconv.Itoa(pushTo.id) + " is infected! " + strconv.Itoa(10-sumBoolLocks(statusList)) +
 			" left to infect.")
 	}
 }
@@ -159,12 +159,14 @@ func pull(currNode *Node) {
 			currNode.status = true // set Node's status to infected
 			fmt.Println(strconv.Itoa(currNode.id)+" status is", currNode.status)
 			currNode.msg = receptionData.message
+			fmt.Println("after message update")
 			statusList[currNode.id] = true // tells array that node is infected now
-			fmt.Println(strconv.Itoa(currNode.id) + " is infected! " + strconv.Itoa(10-sumBool(statusList)) +
-				" left to infect.")
+			fmt.Println("after status list updates", currNode.id, "to", currNode.status)
+			//fmt.Println(strconv.Itoa(currNode.id) + " is infected! " + strconv.Itoa(10-sumBool(statusList)) +
+			//	" left to infect.")
 
 			// checks to see if this is the last node to be infected
-			if sumBool(statusList) == 10 {
+			if sumBoolNoLocks(statusList) == 10 {
 				lastNode = true
 				// need to inform other goroutines to stop
 				for i := 0; i < 10; i++ {
@@ -205,7 +207,7 @@ func pushPull(currNode *Node) {
 	for true {
 		// test to see if there are susceptible nodes remaining
 		// if all nodes are infected, then we break the loop and do not perform push
-		if sumBool(statusList) == len(listOfNodes)/2 {
+		if sumBoolLocks(statusList) == len(listOfNodes)/2 {
 			pull(currNode)
 			break
 		}
@@ -249,8 +251,8 @@ func pickNode(primeNode *Node) *Node {
 	return pickedNode
 }
 
-// returns integer representing how many entries in boolean array are true
-func sumBool(list [10]bool) int {
+// returns integer representing how many entries in boolean array are true using locks within function
+func sumBoolLocks(list [10]bool) int {
 	mu.Lock() // locks global lists
 	fmt.Println("checking sumBool")
 	sum := 0
@@ -260,5 +262,17 @@ func sumBool(list [10]bool) int {
 		}
 	}
 	defer mu.Unlock() // unlocks global list when function finishes running
+	return sum
+}
+
+// returns integer representing how many entries in boolean array are true not using locks within function
+func sumBoolNoLocks(list [10]bool) int {
+	fmt.Println("checking sumBool")
+	sum := 0
+	for _, entry := range list {
+		if entry {
+			sum++
+		}
+	}
 	return sum
 }
