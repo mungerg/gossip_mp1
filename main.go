@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
 	"strconv"
 	"sync"
+
+	//"text/template"
 	"time"
 )
 
@@ -58,7 +59,9 @@ func main() {
 	time1 := time.Now() // captures start time of protocol
 	for i := 0; i < 10; i++ {
 		fmt.Println("Inside loop cycle " + strconv.Itoa(i))
-		go runNode(&wg, <-queue, protocolCode)
+		tempNode := <-queue
+		queue <- tempNode
+		go runNode(&wg, tempNode, protocolCode)
 	}
 	wg.Wait()
 	time2 := time.Now() // captures end time of protocol
@@ -146,6 +149,7 @@ func pull(currNode Node) {
 			currNode.status = true           // set Node's status to infected
 			currNode.msg = reception
 			statusList[currNode.id] = true // tells array that node is infected now
+			queue <- currNode
 			fmt.Println(strconv.Itoa(currNode.id) + " is infected! " + strconv.Itoa(10-sumBool(statusList)) +
 				" left to infect.")
 
@@ -155,8 +159,8 @@ func pull(currNode Node) {
 				// need to inform other goroutines to stop
 				for i := 0; i < 10; i++ {
 					if i != currNode.id {
-						tempNode := <-queue
-						tempNode.pullChan <- -1 // sends invalid id pull request to all nodes except currNode
+						//tempNode := <-queue
+						//tempNode.pullChan <- -1 // sends invalid id pull request to all nodes except currNode
 						close(queue)
 					}
 				}
@@ -220,24 +224,24 @@ func pushPull(currNode Node) {
 // If the node picks itself, it keeps running until it picks a node that isn't itself.
 // returns node chosen
 func pickNode(primeNode Node) Node {
-	fmt.Println("in pick node for", primeNode)
-	var randomId int
-	for true {
-		rand.Seed(time.Now().UnixNano()) // makes it so that the random int is not deterministic
-		randomId = rand.Intn(10)         // random int between 0 and 9 inclusive
-		if randomId != primeNode.id {
-			break
-		}
-	}
-	tempNode := primeNode
-	for q := range queue {
-		tempNode := q
-		if tempNode.id == randomId {
-			break
-		}
-	}
+	//var randomId int
+
+	//rand.Seed(time.Now().UnixNano()) // makes it so that the random int is not deterministic
+	//randomId = rand.Intn(10)         // random int between 0 and 9 inclusive
+	//if randomId == primeNode.id {
+	//	randomId = rand.Intn(10)
+	//}
+	//tempNode := <-queue
+	//if tempNode.id != primeNode.id {
+	//		break
+	//	}
+	//	return <-queue
+
+	//}
+
 	fmt.Println("step 2 of pick node")
-	pickedNode := tempNode
+	pickedNode := <-queue
+	queue <- primeNode
 	fmt.Println("value of picked node is", pickedNode)
 	return pickedNode
 }
