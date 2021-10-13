@@ -7,11 +7,18 @@ import (
 	"time"
 )
 
+/*
+	The number of nodes in the system can be changed to n by changing
+	(1) the sizes of global lists listOfNodes [n]Node and statusList [n]bool to n,
+	(2) the sizes of the input lists in sumBoolLocks(list [n]bool) and sumBoolNoLocks(list [n]bool) to n,
+	(3) variable numNodes in main() to n
+*/
+
 // initialize global list of node objects and list to track status
 var (
 	mu          sync.Mutex // allows for locking of variable
-	listOfNodes [10]Node
-	statusList  [10]bool
+	listOfNodes [20]Node
+	statusList  [20]bool
 )
 
 var wg sync.WaitGroup // makes main wait for go routines to finish
@@ -22,7 +29,7 @@ type pushChanData struct {
 	pushNode *Node  // pointer to Node sent from
 }
 
-// data structure to hold Node data
+// data structure to hold node data
 type Node struct {
 	id       int               // holds ID of node
 	status   bool              // false corresponds to susceptible, true corresponds to infected
@@ -32,33 +39,34 @@ type Node struct {
 }
 
 // function for creating nodes
-func createNode(id int, status bool, msg string) Node {
-	pull := make(chan int, 10)
-	push := make(chan pushChanData, 10)
+func createNode(id int, status bool, msg string, numNodes int) Node {
+	pull := make(chan int, numNodes)
+	push := make(chan pushChanData, numNodes)
 	node := Node{id, status, msg, pull, push}
 	return node
 }
 
 func main() {
-	wg.Add(10)
+	numNodes := 20 // can be changed to have a different number of nodes in the system
+	wg.Add(numNodes)
 
 	// ask for input
-	message, protocolCode := askInput()
+	message, protocolCode := askInput(numNodes)
 
-	// initializes 10 nodes for system indexed 0 - 9
-	for i := 0; i < 10; i++ {
-		if i == 9 { // initial infected node
-			listOfNodes[i] = createNode(i, true, message)
+	// initializes numNodes for system indexed 0 to (numNodes - 1)
+	for i := 0; i < numNodes; i++ {
+		if i == (numNodes - 1) { // initial infected node
+			listOfNodes[i] = createNode(i, true, message, numNodes)
 			statusList[i] = true
 		} else { // remaining susceptible nodes
-			listOfNodes[i] = createNode(i, false, "waiting")
+			listOfNodes[i] = createNode(i, false, "waiting", numNodes)
 			statusList[i] = false
 		}
 	}
 
 	// start gossip protocol
 	time1 := time.Now() // captures start time of protocol
-	for i := 0; i < 10; i++ {
+	for i := 0; i < numNodes; i++ {
 		go runNode(&wg, &listOfNodes[i], protocolCode)
 	}
 	wg.Wait()
@@ -70,7 +78,7 @@ func main() {
 }
 
 // asks for user input of message and desired gossip algorithm
-func askInput() (string, string) {
+func askInput(numNodes int) (string, string) {
 	fmt.Println("Hello! Type a word that you would like to send")
 	var message string
 	error1 := false
@@ -108,7 +116,7 @@ func askInput() (string, string) {
 		}
 	}
 
-	fmt.Println("Great! We will send " + message + " using the " + printCode + " algorithm.")
+	fmt.Println("Great! We will send <"+message+"> using the "+printCode+" algorithm on a system of", numNodes, "nodes.")
 	return message, code
 }
 
@@ -122,7 +130,7 @@ func push(currNode *Node) {
 	for true {
 		// test to see if there are susceptible nodes remaining
 		// if all nodes are infected, then we break the loop and do not perform push
-		if sumBoolLocks(statusList) == 10 {
+		if sumBoolLocks(statusList) == len(statusList) {
 			break
 		}
 		mu.Lock()                    // locks global lists
@@ -153,10 +161,10 @@ func pull(currNode *Node) {
 			statusList[currNode.id] = true // tells array that node is infected now
 
 			// checks to see if this is the last node to be infected
-			if sumBoolNoLocks(statusList) == 10 {
+			if sumBoolNoLocks(statusList) == len(statusList) {
 				lastNode = true
 				// need to inform other goroutines to stop
-				for i := 0; i < 10; i++ {
+				for i := 0; i < len(statusList); i++ {
 					if i != currNode.id {
 						tempNode := listOfNodes[i]
 						tempNode.pullChan <- -1 // sends invalid id pull request to all nodes except currNode
@@ -196,7 +204,7 @@ func pushPull(currNode *Node) {
 				mu.Lock() // locks global lists
 				if sumBoolNoLocks(statusList) == len(listOfNodes)/2 {
 					// inform susceptible goroutines to stop
-					for i := 0; i < 10; i++ {
+					for i := 0; i < len(statusList); i++ {
 						if i != currNode.id && !listOfNodes[i].status {
 							tempNode := listOfNodes[i]
 							tempNode.pushChan <- pushChanData{"switch", currNode} // sends invalid id pull request to all nodes except currNode
@@ -246,8 +254,8 @@ func runNode(wg *sync.WaitGroup, currNode *Node, protocol string) {
 func pickNode(primeNode *Node) *Node {
 	var randomId int
 	for true {
-		rand.Seed(time.Now().UnixNano()) // makes it so that the random int is not deterministic
-		randomId = rand.Intn(10)         // random int between 0 and 9 inclusive
+		rand.Seed(time.Now().UnixNano())      // makes it so that the random int is not deterministic
+		randomId = rand.Intn(len(statusList)) // random int between 0 and 9 inclusive
 		if randomId != primeNode.id {
 			break // cycles through until we find a node that is not the one picking
 		}
@@ -258,7 +266,7 @@ func pickNode(primeNode *Node) *Node {
 }
 
 // returns integer representing how many entries in boolean array are true using locks within function
-func sumBoolLocks(list [10]bool) int {
+func sumBoolLocks(list [20]bool) int {
 	mu.Lock() // locks global lists
 	sum := 0
 	for _, entry := range list {
@@ -271,7 +279,7 @@ func sumBoolLocks(list [10]bool) int {
 }
 
 // returns integer representing how many entries in boolean array are true not using locks within function
-func sumBoolNoLocks(list [10]bool) int {
+func sumBoolNoLocks(list [20]bool) int {
 	sum := 0
 	for _, entry := range list {
 		if entry {
