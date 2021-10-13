@@ -7,7 +7,7 @@ Sebastian Fernandez, Gabby Munger, Justin Gomez
 
 Description
 -----
-This program creates a network of independent nodes which spread a message via the gossip protocol. 
+This program creates a network of independent nodes which spread a message via the gossip protocol, with the intention of using this program to gather data on runtime between the three different protocols (Push, Pull, and Push-Pull) and on systems of varying size.
 
 How To Run
 ----
